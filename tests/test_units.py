@@ -138,3 +138,37 @@ class TestUnpackPackage:
         assert (src / "hpmfile.json").read_bytes() == b"{}"
         # nothing left outside src
         assert [p.name for p in (tmp_path / "out").iterdir()] == ["src"]
+
+
+class TestRobustness:
+    """Corrupt/missing metadata must degrade gracefully."""
+
+    def _scan(self, tmp_path, files: dict):
+        for name, data in files.items():
+            f = tmp_path / name
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_bytes(data)
+        from alipay_mp_extractor.packages import scan_framework
+        return scan_framework(tmp_path)
+
+    def test_bad_framework_index(self, tmp_path):
+        assert self._scan(tmp_path, {"framework_index.json": b"not-json"}) == []
+
+    def test_empty_framework_index(self, tmp_path):
+        assert self._scan(tmp_path, {"framework_index.json": b"{}"}) == []
+
+    def test_bad_index_tsv_lines_skipped(self, tmp_path):
+        from alipay_mp_extractor.packages import scan_apps
+        (tmp_path / "index.tsv").write_text(
+            "no-tab-line\n\n/path/0.dc\t2019000000000000\n/path2/x.dc\t\n",
+            errors="ignore",
+        )
+        apps = scan_apps(tmp_path)
+        assert set(apps) == {"2019000000000000"}
+
+    def test_bad_manifest_xml(self, tmp_path):
+        d = tmp_path / "nebulaInstallApps" / "123" / "abc"
+        d.mkdir(parents=True)
+        (d / "Manifest.xml").write_text("<broken", errors="ignore")
+        fws = self._scan(tmp_path, {})
+        assert len(fws) == 1 and fws[0].name == "?"

@@ -167,6 +167,10 @@ class AdbTransport:
         """Run a shell command on the device; returns raw bytes."""
         return self._try(cmd, timeout or self.timeout)
 
+    def shell_text(self, cmd: str, timeout: Optional[int] = None) -> str:
+        """Run a shell command, returning decoded text."""
+        return self.shell(cmd, timeout).decode("utf-8", errors="ignore")
+
     def devices(self) -> List[Tuple[str, str]]:
         """[(serial, state)] visible to the adb server."""
         try:

@@ -2,7 +2,7 @@
 
 ::
 
-    alipay-mp sync [--force]
+    alipay-mp sync [--force] [--full]
     alipay-mp list [--json]
     alipay-mp search <keyword> [--json]
     alipay-mp info <key> [--json]
@@ -153,7 +153,7 @@ def cmd_export_all(args) -> int:
 
 def cmd_sync(args) -> int:
     mp = _make_client(args)
-    mp.sync(force=args.force)
+    mp.sync(force=args.force, full=args.full)
     return 0
 
 
@@ -201,8 +201,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = top.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("sync", help="pull packages from the device")
+    p = sub.add_parser("sync", help="pull metadata from the device (fast)")
     p.add_argument("--force", action="store_true", help="re-pull even if dump exists")
+    p.add_argument("--full", action="store_true",
+                   help="also stream every package payload to disk (slower)")
     _add_device_args(p)
     p.set_defaults(func=cmd_sync)
 

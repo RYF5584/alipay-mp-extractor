@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import unicodedata
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
@@ -92,3 +93,44 @@ class Logger:
     def debug(self, msg: str) -> None:
         if self.verbose:
             print(f"[db] {msg}")
+
+
+class Progress:
+    """Batch progress: in-place bar on a tty, one line per item otherwise.
+
+    Usage::
+
+        p = Progress(len(items), "export")
+        for item in items:
+            do_work(item)
+            p.step(item)
+        p.done()
+    """
+
+    WIDTH = 24
+
+    def __init__(self, total: int, label: str = "", enabled: Optional[bool] = None):
+        self.total = max(int(total), 0)
+        self.label = label
+        self.n = 0
+        self._tty = sys.stdout.isatty() if enabled is None else bool(enabled)
+
+    def _render(self, item: str) -> str:
+        n, total = self.n, max(self.total, 1)
+        filled = int(self.WIDTH * n / total)
+        bar = "#" * filled + "-" * (self.WIDTH - filled)
+        suffix = f" {trunc(item, 40)}" if item else ""
+        return f"{self.label} [{bar}] {n}/{total}{suffix}"
+
+    def step(self, item: str = "") -> None:
+        self.n += 1
+        if self._tty:
+            sys.stdout.write("\r" + self._render(item))
+            sys.stdout.flush()
+        else:
+            print(self._render(item), flush=True)
+
+    def done(self) -> None:
+        if self._tty:
+            sys.stdout.write("\n")
+            sys.stdout.flush()

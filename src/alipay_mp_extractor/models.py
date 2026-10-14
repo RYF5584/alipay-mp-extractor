@@ -17,6 +17,7 @@ class MiniApp:
     size: int = 0
     kind: str = "app"  # "app" | "plugin" | "unknown"
     package_file: Optional[Path] = None
+    device_path: Optional[str] = None  # on-device dc path (light sync)
     package_url: Optional[str] = None
     plugins: List[Dict[str, str]] = field(default_factory=list)  # declared deps
     pages: List[str] = field(default_factory=list)
@@ -70,6 +71,7 @@ class FrameworkPackage:
     version: str = "?"
     app_version: str = "?"
     manifest_dir: Optional[Path] = None
+    device_dir: Optional[str] = None  # on-device nebulaInstallApps/<appId>/<md5>
 
     def to_dict(self) -> Dict[str, Any]:
         return {

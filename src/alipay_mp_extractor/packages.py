@@ -60,21 +60,30 @@ def _clean(s: str) -> str:
 # ------------------------------------------------------------------ dbs
 
 def load_app_meta(dump: Path) -> Dict[str, dict]:
-    """appId -> {name, version, package_url} from container dbs."""
+    """appId -> {name, version, package_url, plugins} from container dbs.
+
+    ``plugins`` comes straight from the container's resource table so the
+    light sync can report declared plugins without any package download.
+    """
     meta: Dict[str, dict] = {}
     for db in sorted(dump.glob("*.db")) if dump.exists() else []:
         try:
             con = sqlite3.connect(str(db))
             rows = con.execute(
-                f"SELECT app_id, name, version, package_url FROM {APP_TABLE}"
+                f"SELECT app_id, name, version, package_url, plugins, size "
+                f"FROM {APP_TABLE}"
             ).fetchall()
-            for app_id, name, version, url in rows:
+            for app_id, name, version, url, plugins_json, size in rows:
                 cur = meta.setdefault(
-                    str(app_id), {"name": None, "version": None, "package_url": None}
+                    str(app_id),
+                    {"name": None, "version": None, "package_url": None,
+                     "plugins": None, "size": 0},
                 )
                 cur["name"] = cur["name"] or name
                 cur["version"] = cur["version"] or version
                 cur["package_url"] = cur["package_url"] or url
+                cur["plugins"] = cur["plugins"] or plugins_json
+                cur["size"] = cur["size"] or (size or 0)
             con.close()
         except sqlite3.Error:
             continue
@@ -107,20 +116,47 @@ def load_plugins(dump: Path) -> Dict[str, PluginInfo]:
 
 # ------------------------------------------------------------------ framework
 
+def _parse_manifest_xml(text: str) -> Dict[str, str]:
+    try:
+        root = ET.fromstring(text)
+        return {c.tag: (c.text or "").strip() for c in root}
+    except ET.ParseError:
+        return {}
+
+
 def scan_framework(dump: Path) -> List[FrameworkPackage]:
     out = []
+    light_index = dump / "framework_index.json"
+    if light_index.exists():
+        import json as _json
+
+        try:
+            data = _json.loads(light_index.read_text())
+        except (json.JSONDecodeError, OSError):
+            data = {}
+        for rel_dir, xml in sorted(data.items()):
+            vals = _parse_manifest_xml(xml) if xml else {}
+            out.append(
+                FrameworkPackage(
+                    app_id=rel_dir.split("/")[0],
+                    name=vals.get("name", "?"),
+                    version=vals.get("version", "?"),
+                    app_version=vals.get("appVersion", "?"),
+                    device_dir=rel_dir,
+                )
+            )
+        return out
     for d in sorted(dump.glob("nebulaInstallApps/*/*")) if dump.exists() else []:
         manifest = d / "Manifest.xml"
         if not manifest.exists():
             continue
         name = version = app_version = "?"
         try:
-            root = ET.parse(str(manifest)).getroot()
-            vals = {c.tag: (c.text or "").strip() for c in root}
+            vals = _parse_manifest_xml(manifest.read_text(errors="ignore"))
             name = vals.get("name", "?")
             version = vals.get("version", "?")
             app_version = vals.get("appVersion", "?")
-        except ET.ParseError:
+        except OSError:
             pass
         out.append(
             FrameworkPackage(
@@ -187,12 +223,18 @@ def peek_appconfig(pkg: Path) -> Optional[dict]:
 
 
 def scan_apps(dump: Path, plugin_index: Optional[Dict[str, PluginInfo]] = None) -> Dict[str, MiniApp]:
-    """Discover every business package (apps AND plugins share the same cache)."""
+    """Discover every business package (apps AND plugins share the same cache).
+
+    Two dump layouts are supported:
+      - light sync: ``index.tsv`` maps device dc paths to appIds; packages
+        stay on the device and are pulled on demand at export time
+      - full sync: every ``0.dc`` / legacy tar is present locally
+    """
     apps: Dict[str, MiniApp] = {}
     meta = load_app_meta(dump)
     plugins_tbl = plugin_index if plugin_index is not None else load_plugins(dump)
 
-    def register(app_id: str, pkg: Path) -> None:
+    def register(app_id: str, pkg: Optional[Path], device_path: Optional[str] = None) -> None:
         info = apps.get(app_id)
         if info is None:
             m = meta.get(app_id, {})
@@ -203,21 +245,51 @@ def scan_apps(dump: Path, plugin_index: Optional[Dict[str, PluginInfo]] = None) 
                 version=m.get("version") or (pl.developer_version if pl else "?"),
                 package_url=m.get("package_url") or (pl.package_url if pl else None),
                 kind="plugin" if app_id in plugins_tbl else "app",
+                size=m.get("size") or 0,
+                device_path=device_path,
             )
+        if pkg is None:
+            return
         if info.package_file is None or pkg.stat().st_size > info.package_file.stat().st_size:
             info.package_file = pkg
         info.size = max(info.size, pkg.stat().st_size)
 
-    for dc in iter_dc_packages(dump):
-        app_id = tar_member_appid(dc)
-        if app_id:
-            register(app_id, dc)
-    for tar in iter_legacy_tars(dump):
-        register(tar.stem, tar)
+    index = dump / "index.tsv" if dump.exists() else None
+    if index is not None and index.exists():
+        # light layout
+        for line in index.read_text(errors="ignore").splitlines():
+            if "\t" not in line:
+                continue
+            rel, app_id = line.split("\t", 1)
+            if app_id.strip():
+                register(app_id.strip(), None, device_path=rel)
+    else:
+        # full layout
+        for dc in iter_dc_packages(dump):
+            app_id = tar_member_appid(dc)
+            if app_id:
+                register(app_id, dc)
+        for tar in iter_legacy_tars(dump):
+            register(tar.stem, tar)
 
-    # peek appConfig.json in every package: declared plugins, without unpacking
+    # declared plugins: prefer the container db (works in light mode); fall
+    # back to peeking appConfig.json when a package sits locally
     for app in apps.values():
-        if app.package_file is not None:
+        m = meta.get(app.app_id, {})
+        if m.get("plugins"):
+            try:
+                arr = json.loads(m["plugins"])
+                app.plugins = [
+                    {
+                        "alias": str(it.get("appId", "")),
+                        "provider": str(it.get("appId", "")),
+                        "version": str(it.get("deployVersion", "*")),
+                    }
+                    for it in arr if isinstance(it, dict) and it.get("appId")
+                ]
+            except json.JSONDecodeError:
+                pass
+        if app.package_file is not None and not app.plugins:
             cfg = peek_appconfig(app.package_file)
             if cfg:
                 app.plugins = _plugins_of(cfg)
@@ -230,7 +302,9 @@ def scan_apps(dump: Path, plugin_index: Optional[Dict[str, PluginInfo]] = None) 
         for decl in app.plugins:
             info = plugins_tbl.get(decl["provider"])
             if info is not None:
-                info.used_by.append(f"{app.display_name}:{decl['alias']}")
+                mark = f"{app.display_name}:{decl['alias']}"
+                if mark not in info.used_by:
+                    info.used_by.append(mark)
 
     return apps
 
@@ -262,6 +336,25 @@ def enrich_from_src(app: MiniApp, src: Path, plugin_index: Dict[str, PluginInfo]
 def clean_name(s: str) -> str:
     """Filesystem-safe directory name from an app name."""
     return _clean(s)
+
+
+def load_alias_cache(dump: Path) -> Dict[str, dict]:
+    """provider -> {alias, app_id}; grown whenever an app is exported."""
+    f = dump / "aliases.json"
+    if not f.exists():
+        return {}
+    try:
+        return json.loads(f.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_alias_cache(dump: Path, cache: Dict[str, dict]) -> None:
+    f = dump / "aliases.json"
+    try:
+        f.write_text(json.dumps(cache, ensure_ascii=False, indent=1))
+    except OSError:
+        pass
 
 
 def display_dirname(app_id: str, name: str, duplicate: bool) -> str:

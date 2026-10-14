@@ -37,6 +37,13 @@ _MSGS: Dict[str, Dict[str, str]] = {
         "cli.fw_hint": "共 {n} 个框架包",
         "cli.plugin_hint": "共 {n} 个插件。导出：alipay-mp export <provider>",
         "cli.interrupted": "已中断",
+        "cli.sync_light": "（轻量模式：包内容将在导出时按需拉取，--full 可全量拉取）",
+        "cli.index_done": "已索引 {n} 个业务包",
+        "cli.progress_export": "导出",
+        "cli.progress_framework": "框架包",
+        "cli.pull_pkg": "拉取 {name} 的包（{size}）",
+        "cli.batch_done": "批量完成 {n}/{total}",
+        "err.need_device": "本地无缓存，需连接设备按需拉取，或执行 sync --full",
     },
     "en": {
         "err.adb_server": "cannot reach adb server ({host}:{port}): {detail}. Is adb running? (adb start-server)",
@@ -66,6 +73,13 @@ _MSGS: Dict[str, Dict[str, str]] = {
         "cli.fw_hint": "{n} framework package(s)",
         "cli.plugin_hint": "{n} plugin(s). export via: alipay-mp export <provider>",
         "cli.interrupted": "interrupted",
+        "cli.sync_light": "(light sync: package payloads are pulled on demand at export; use --full to fetch everything)",
+        "cli.index_done": "indexed {n} business packages",
+        "cli.progress_export": "export",
+        "cli.progress_framework": "framework",
+        "cli.pull_pkg": "pulling package of {name} ({size})",
+        "cli.batch_done": "batch done {n}/{total}",
+        "err.need_device": "not cached locally; connect the device to pull it, or run sync --full",
     },
 }
 
