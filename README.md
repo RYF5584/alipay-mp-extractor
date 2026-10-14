@@ -4,8 +4,8 @@
 
 Extract and decompile Alipay (Android) mini-program packages from a rooted device.
 
-[![PyPI](https://img.shields.io/pypi/v/alipay-mp-extractor)](https://pypi.org/project/alipay-mp-extractor/)
-[![Python](https://img.shields.io/pypi/pyversions/alipay-mp-extractor)](https://pypi.org/project/alipay-mp-extractor/)
+[![PyPI](https://img.shields.io/pypi/v/alipay-mp-extractor?style=flat)](https://pypi.org/project/alipay-mp-extractor/)
+[![Python](https://img.shields.io/pypi/pyversions/alipay-mp-extractor?style=flat)](https://pypi.org/project/alipay-mp-extractor/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 [English](README.en.md) | 简体中文
