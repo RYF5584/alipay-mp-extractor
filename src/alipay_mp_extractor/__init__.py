@@ -29,7 +29,12 @@ from .errors import (
 from .i18n import set_lang
 from .models import FrameworkPackage, MiniApp, PluginInfo
 
-__version__ = "1.0.0"
+try:
+    from importlib.metadata import version as _metadata_version
+
+    __version__ = _metadata_version("alipay-mp-extractor")
+except Exception:  # package not installed (e.g. running from a checkout)
+    __version__ = "1.2.1"
 
 __all__ = [
     "AlipayMPExtractor",
