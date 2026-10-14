@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+ws/
+alipay_mp_workspace/
+.venv/
+
+uv.lock

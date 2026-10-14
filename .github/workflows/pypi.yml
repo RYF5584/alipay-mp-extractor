@@ -1,0 +1,42 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Build sdist & wheel
+        run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # trusted publishing (no API token needed)
+    steps:
+      - name: Skip if the version is already on PyPI
+        id: check
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if curl -sf "https://pypi.org/pypi/alipay-mp-extractor/json" | grep -q "\"version\":\"$VERSION\""; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "$VERSION already published, skipping"
+          fi
+      - uses: actions/download-artifact@v4
+        if: steps.check.outputs.skip != 'true'
+        with:
+          name: dist
+          path: dist/
+      - name: Publish
+        if: steps.check.outputs.skip != 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
