@@ -1,4 +1,4 @@
-"""Command line interface.
+"""Command line interface (fully localized, incl. help texts).
 
 ::
 
@@ -9,7 +9,8 @@
     alipay-mp export <key>... [-o DIR] [--no-beautify] [--with-plugins] [--overwrite]
     alipay-mp export-all [-o DIR] [--kind app|plugin|all]
     alipay-mp plugins [--json]
-    alipay-mp framework [--export]
+    alipay-mp framework [--export] [--json]
+    alipay-mp help [command]
 
 Device selection: --serial | --connect IP:PORT | --adb-host/--adb-port.
 """
@@ -28,21 +29,21 @@ from .models import FrameworkPackage, MiniApp, PluginInfo
 
 
 def _add_device_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--serial", metavar="ID", help="USB device serial (default: first)")
-    p.add_argument(
-        "--connect", metavar="IP:PORT", help="network device via adb connect"
-    )
-    p.add_argument("--adb-host", default="127.0.0.1", help="adb server host")
-    p.add_argument("--adb-port", type=int, default=5037, help="adb server port")
+    p.add_argument("--serial", metavar="ID", help=t("help.serial"))
+    p.add_argument("--connect", metavar="IP:PORT", help=t("help.connect"))
+    p.add_argument("--adb-host", default="127.0.0.1", help=t("help.adb_host"))
+    p.add_argument("--adb-port", type=int, default=5037, help=t("help.adb_port"))
     p.add_argument(
         "--backend",
         choices=["auto", "adbutils", "system"],
         default="auto",
-        help="adb backend: auto = adbutils with system-adb fallback",
+        help=t("help.backend"),
     )
-    p.add_argument("-w", "--workdir", default="./alipay_mp_workspace", help="workspace dir")
-    p.add_argument("--lang", choices=["zh", "en"], help="UI language (default: auto)")
-    p.add_argument("-v", "--verbose", action="store_true")
+    p.add_argument(
+        "-w", "--workdir", default="./alipay_mp_workspace", help=t("help.workdir")
+    )
+    p.add_argument("--lang", choices=["zh", "en"], help=t("help.lang"))
+    p.add_argument("-v", "--verbose", action="store_true", help=t("help.verbose"))
 
 
 def _make_client(args: argparse.Namespace) -> AlipayMPExtractor:
@@ -190,90 +191,136 @@ def cmd_framework(args) -> int:
     return 0
 
 
+def cmd_help(args, parser: argparse.ArgumentParser) -> int:
+    choices = parser._subparsers._group_actions[0].choices  # noqa: SLF001
+    if not args.topic:
+        parser.print_help()
+        return 0
+    sub = choices.get(args.topic)
+    if sub is None or args.topic == "help":
+        print(f"unknown command: {args.topic}", file=sys.stderr)
+        print(
+            f"available: {', '.join(k for k in choices if k != 'help')}",
+            file=sys.stderr,
+        )
+        return 1
+    sub.print_help()
+    return 0
+
+
 # ------------------------------------------------------------------ parser
 
 def build_parser() -> argparse.ArgumentParser:
     top = argparse.ArgumentParser(
         prog="alipay-mp",
-        description=(
-            "Extract & decompile Alipay mini-programs from a rooted Android device"
-        ),
+        description=t("help.prog"),
+        epilog=t("help.examples"),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    top.add_argument("--lang", choices=["zh", "en"], help=t("help.lang"))
     sub = top.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("sync", help="pull metadata from the device (fast)")
-    p.add_argument("--force", action="store_true", help="re-pull even if dump exists")
-    p.add_argument("--full", action="store_true",
-                   help="also stream every package payload to disk (slower)")
+    p = sub.add_parser("sync", help=t("help.sync"), description=t("help.sync"))
+    p.add_argument("--force", action="store_true", help=t("help.sync_force"))
+    p.add_argument("--full", action="store_true", help=t("help.sync_full"))
     _add_device_args(p)
     p.set_defaults(func=cmd_sync)
 
-    p = sub.add_parser("list", help="list all mini-programs")
-    p.add_argument("--json", action="store_true")
+    p = sub.add_parser("list", help=t("help.list"), description=t("help.list"))
+    p.add_argument("--json", action="store_true", help=t("help.json"))
     _add_device_args(p)
     p.set_defaults(func=cmd_list)
 
-    p = sub.add_parser("search", help="search by name/appId/plugin alias")
-    p.add_argument("keyword")
-    p.add_argument("--json", action="store_true")
+    p = sub.add_parser("search", help=t("help.search"), description=t("help.search"))
+    p.add_argument("keyword", help=t("help.keyword"))
+    p.add_argument("--json", action="store_true", help=t("help.json"))
     _add_device_args(p)
     p.set_defaults(func=cmd_search)
 
-    p = sub.add_parser("info", help="show details of one mini-program")
-    p.add_argument("key", help="name or appId")
-    p.add_argument("--json", action="store_true")
+    p = sub.add_parser("info", help=t("help.info"), description=t("help.info"))
+    p.add_argument("key", help=t("help.key"))
+    p.add_argument("--json", action="store_true", help=t("help.json"))
     _add_device_args(p)
     p.set_defaults(func=cmd_info)
 
-    p = sub.add_parser("export", help="export (unpack + decompile) one or more apps")
-    p.add_argument("keys", nargs="+", help="name or appId, multiple allowed")
-    p.add_argument("-o", "--out", help="output directory (default <workdir>/apps)")
+    p = sub.add_parser("export", help=t("help.export"), description=t("help.export"))
+    p.add_argument("keys", nargs="+", help=t("help.keys"))
+    p.add_argument("-o", "--out", help=t("help.export_out"))
     p.add_argument(
         "--no-beautify",
         dest="beautify",
         action="store_false",
-        help="skip JS formatting (faster, raw files)",
+        help=t("help.no_beautify"),
     )
     p.add_argument(
         "--with-plugins",
         dest="plugins",
         action="store_true",
-        help="also export the plugins declared by the app(s)",
+        help=t("help.with_plugins"),
     )
-    p.add_argument("--overwrite", action="store_true")
+    p.add_argument("--overwrite", action="store_true", help=t("help.overwrite"))
     _add_device_args(p)
     p.set_defaults(func=cmd_export)
 
-    p = sub.add_parser("export-all", help="export everything")
-    p.add_argument("-o", "--out")
-    p.add_argument("--kind", choices=["all", "app", "plugin"], default="all")
-    p.add_argument("--no-beautify", dest="beautify", action="store_false")
+    p = sub.add_parser(
+        "export-all", help=t("help.export_all"), description=t("help.export_all")
+    )
+    p.add_argument("-o", "--out", help=t("help.out"))
+    p.add_argument(
+        "--kind", choices=["all", "app", "plugin"], default="all", help=t("help.kind")
+    )
+    p.add_argument(
+        "--no-beautify", dest="beautify", action="store_false", help=t("help.no_beautify")
+    )
     p.add_argument(
         "--with-plugins",
         dest="plugins",
         action="store_true",
-        help="also export the plugins declared by each app",
+        help=t("help.with_plugins"),
     )
     _add_device_args(p)
     p.set_defaults(func=cmd_export_all)
 
-    p = sub.add_parser("plugins", help="list known plugins")
-    p.add_argument("--json", action="store_true")
+    p = sub.add_parser("plugins", help=t("help.plugins"), description=t("help.plugins"))
+    p.add_argument("--json", action="store_true", help=t("help.json"))
     _add_device_args(p)
     p.set_defaults(func=cmd_plugins)
 
-    p = sub.add_parser("framework", help="list/extract official framework packages")
-    p.add_argument("--export", action="store_true", help="also unpack them")
-    p.add_argument("--json", action="store_true")
+    p = sub.add_parser(
+        "framework", help=t("help.framework"), description=t("help.framework")
+    )
+    p.add_argument("--export", action="store_true", help=t("help.framework_export"))
+    p.add_argument("--json", action="store_true", help=t("help.json"))
     _add_device_args(p)
     p.set_defaults(func=cmd_framework)
+
+    p = sub.add_parser("help", help=t("help.cmd_help"), description=t("help.cmd_help"))
+    p.add_argument("topic", nargs="?", help=t("help.topic"))
+    _add_device_args(p)  # accept the common global options for consistency
+    p.set_defaults(func=None)
 
     return top
 
 
+def _preset_lang(argv: Optional[List[str]]) -> None:
+    """Apply --lang before parsing so help texts are localized too."""
+    items = list(argv if argv is not None else sys.argv[1:])
+    for i, a in enumerate(items):
+        if a == "--lang" and i + 1 < len(items):
+            set_lang(items[i + 1])
+            return
+        if a.startswith("--lang="):
+            set_lang(a.split("=", 1)[1])
+            return
+    set_lang(None)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
-    args = build_parser().parse_args(argv)
-    set_lang(getattr(args, "lang", None))
+    _preset_lang(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if getattr(args, "cmd", None) == "help":
+        return cmd_help(args, parser)
     try:
         return args.func(args)
     except AlipayMPError as e:
