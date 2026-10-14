@@ -1,11 +1,11 @@
-__pycache__/
-*.py[cod]
-*.egg-info/
-dist/
-build/
-.pytest_cache/
-ws/
-alipay_mp_workspace/
-.venv/
 
+*.egg-info/
+*.py[cod]
+.pytest_cache/
+.venv/
+__pycache__/
+alipay_mp_workspace/
+build/
+dist/
 uv.lock
+ws/
