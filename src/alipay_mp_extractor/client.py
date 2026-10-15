@@ -552,6 +552,7 @@ class AlipayMPExtractor:
             name = re.sub(r'[\\/:*?"<>|\s]+', "_", fw.name or "?")
             dest = out_root / f"{fw.app_id}_{name}_v{fw.version}"
             if dest.exists():
+                progress.step(f"{fw.app_id} {fw.name}")
                 continue
             if fw.manifest_dir is not None:
                 tars = list(fw.manifest_dir.glob("*.tar"))

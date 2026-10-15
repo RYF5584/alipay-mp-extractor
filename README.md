@@ -45,6 +45,7 @@ alipay-mp export <名称|appId> ...     # 导出，可同时指定多个
 alipay-mp export-all [--kind app]     # 导出全部
 alipay-mp plugins                     # 插件列表及使用方
 alipay-mp framework [--export]        # 官方框架包列表 / 解包
+alipay-mp help [命令]                  # 查看帮助与示例
 ```
 
 `export` 常用参数：
@@ -78,6 +79,7 @@ mp.search("<名称>")                  # -> list[MiniApp]
 mp.query("<appId>")                 # -> MiniApp
 mp.export("<名称>")                  # -> Path
 mp.export("<名称>", with_plugins=True)   # 连同声明的插件一起导出
+mp.sync(full=True)                   # 全量拉取包内容（默认轻量同步）
 mp.plugins()                        # -> list[PluginInfo]
 mp.framework()                      # -> list[FrameworkPackage]
 mp.export_framework()               # 解包官方框架包

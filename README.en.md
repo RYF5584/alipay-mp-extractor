@@ -47,6 +47,7 @@ alipay-mp export <name|appId> ...     # export one or more apps
 alipay-mp export-all [--kind app]     # export everything
 alipay-mp plugins                     # plugin list and who uses them
 alipay-mp framework [--export]        # official framework packages
+alipay-mp help [command]              # help and examples
 ```
 
 Useful `export` options:
@@ -80,6 +81,7 @@ mp.search("<name>")                 # -> list[MiniApp]
 mp.query("<appId>")                 # -> MiniApp
 mp.export("<name>")                 # -> Path
 mp.export("<name>", with_plugins=True)   # include declared plugins
+mp.sync(full=True)                   # stream all payloads (light sync by default)
 mp.plugins()                        # -> list[PluginInfo]
 mp.framework()                      # -> list[FrameworkPackage]
 mp.export_framework()               # unpack framework packages
