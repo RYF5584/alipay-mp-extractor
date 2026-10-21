@@ -1,6 +1,6 @@
 <div align="center">
 
-# alipay-mp-extractor
+# alipay-mp-extractor（支付宝小程序源码提取工具）
 
 Extract and decompile Alipay (Android) mini-program packages from a rooted device.
 
@@ -12,18 +12,20 @@ Extract and decompile Alipay (Android) mini-program packages from a rooted devic
 
 </div>
 
-支付宝把打开过的小程序以 tar 归档的形式缓存在设备上（未加密）。本工具通过 adb（需 root）
-把它们找出来：支持按名称搜索、查询详情、导出并反编译成可读的源码树，也能按需导出小程序
+通过 adb（需 root）提取安卓支付宝小程序源码
+支持按名称搜索、查询详情、导出并反编译成可读的源码树，也能按需导出小程序
 声明使用的插件，以及官方运行时框架包。
 
-## 安装
+## 从 Pypi 安装
 
 ```bash
-uvx alipay-mp-extractor list            # 免安装运行
-uv tool install alipay-mp-extractor     # 或 pip install alipay-mp-extractor
+pip install alipay-mp-extractor         # 通过pip安装
+uv add install alipay-mp-extractor      # 通过uv安装
+uv tool install alipay-mp-extractor     # uv tools 安装
+uvx alipay-mp-extractor list            # uvx免安装临时运行
 ```
 
-从源码：
+## 从源码安装
 
 ```bash
 git clone https://github.com/RYF5584/alipay-mp-extractor
